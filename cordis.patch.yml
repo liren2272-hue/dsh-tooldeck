@@ -1,0 +1,18 @@
+# dsh-tooldeck 接线补丁
+# 通过 package.json 的 dsh.bundle.patch 指向本文件，自动并入 profile 组合配置（@local 插件不需要写进
+# profile 的 cordis.patch.yml，link + bundles 登记后即生效）。
+#
+# 扩展点（用户核心诉求「接入其他功能」）：
+#  - 内置动作：DSH 健康体检（dsh_health check / reclaim），由 lib/actions/health.mjs 注册。
+#  - 运行时注入：其它插件可在自己的 apply() 里拿到 ctx.tooldeck.register(action)，
+#    登记自己的动作；工具台卡片按 /api/dsh-tooldeck/actions 拉清单动态渲染，无需改卡片。
+#  - 全部动作经宿主路由 POST /api/dsh-tooldeck/run 派发，handler 返回 { ok, text, data }。
+- insert:
+    - id: dsh-tooldeck
+      name: '@local/dsh-tooldeck'
+      config:
+        health:
+          autoReclaim: true
+          staleRunMs: 2700000
+          startupDelayMs: 20000
+          sweepIntervalMs: 21600000
