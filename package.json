@@ -1,10 +1,10 @@
 {
   "name": "@local/dsh-tooldeck",
-  "version": "1.0.0",
+  "version": "1.1.1",
   "icon": "./icon.svg",
   "private": true,
   "type": "module",
-  "description": "可扩展的「工具台」面板：把多个运维动作集中到设置→插件里，点击即运行；新增功能只需在宿主侧注册一条动作（registry 驱动，卡片零改动）。",
+  "description": "可扩展的「工具台」面板：把多个运维动作集中到设置→插件里，点击即运行；内置「查找插件尸体」——扫描并隔离未安装插件的市场发现缓存/状态引用/备份/孤儿目录/软链，配合「清空隔离区」物理删除。新增功能只需在宿主侧注册一条动作（registry 驱动，卡片零改动）。",
   "main": "lib/index.mjs",
   "exports": {
     ".": "./lib/index.mjs",

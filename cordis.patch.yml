@@ -4,6 +4,8 @@
 #
 # 扩展点（用户核心诉求「接入其他功能」）：
 #  - 内置动作：DSH 健康体检（dsh_health check / reclaim），由 lib/actions/health.mjs 注册。
+#  - 内置动作：工作区整理（散落文件隔离 / 查找插件尸体 / 清空隔离区），由 lib/actions/workspace.mjs
+#    与 lib/actions/corpses.mjs 注册；「查找插件尸体」把未装插件残留移入同一个 .quarantine/。
 #  - 运行时注入：其它插件可在自己的 apply() 里拿到 ctx.tooldeck.register(action)，
 #    登记自己的动作；工具台卡片按 /api/dsh-tooldeck/actions 拉清单动态渲染，无需改卡片。
 #  - 全部动作经宿主路由 POST /api/dsh-tooldeck/run 派发，handler 返回 { ok, text, data }。
