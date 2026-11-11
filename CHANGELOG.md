@@ -1,5 +1,60 @@
 # CHANGELOG
 
+## [1.3.1] — 2026-11-11
+
+### 变更
+- **工作区整理：扫描与隔离按钮合一**。移除独立的只读「扫描散落文件（只读）」（`workspace:audit`）按钮，
+  「扫描 + 隔离」合并为一个按钮 `workspace:clean`（标题「扫描并隔离散落文件（可回退）」）：
+  一次点击完成扫描 + 同盘隔离移入 `.quarantine/<时间戳>/`，结果面板置顶显示隔离结果、
+  检测清单折叠在下方。工作区大类由 3 个按钮收敛为 2 个（+「清空隔离区（真删）」）。
+- `scanStrays()` / `auditStrays()` 仍导出，供程序化只读扫描与测试，只是不再单列成卡片按钮。
+- 同步更新 README、package.json description 与本 CHANGELOG。
+
+## [1.3.0] — 2026-11-10
+
+### 新增
+- **「扫描散落文件（只读）→ 隔离散落文件（可回退）→ 清空隔离区（真删）」三步闭环**：
+  - `workspace:audit`（新）：只读列出散落文件（含大小/时间），不写盘、不移动；`data.readOnly=true`。
+  - `workspace:clean`：把清单里的散落文件同盘 `renameSync` 移入 `.quarantine/<时间戳>/<原相对路径>`，
+    保留目录结构，可原路 `mv` 回退，不删除。
+  - `workspace:purge-quarantine`：仅此一条真删，`danger:true`，只清 `.quarantine/` 内容。
+
+### 变更（判定口径：不误伤目录与隐藏文件）
+- 默认**目录一律保护**：工作区根一级目录不再进散落清单；`includeRootDirs: true` 才恢复旧口径。
+- 隐藏文件/目录（`.` 开头）始终不进清单；`sessions/INDEX.md` 与会话根 `README.md` 仍白名单。
+- 会话文件夹 1:1 复合能力**默认关闭**（`quarantineStrays(ws, env, { moveOrphanSessions: true })`
+  才启用），默认不搬任何会话文件夹；`data.orphanScan` 为 `null`。
+
+### 测试
+- `test/workspace-sessions.test.mjs` 新增 2 例：三步闭环（只读不动盘 → 隔离可回退 → purge 才真删）与
+  「目录保护：默认不动任何会话文件夹」；原 1:1 用例显式传 `moveOrphanSessions: true`。
+
+## [1.2.0] — 2026-11-09
+
+### 新增
+- 「整理工作区」按钮（`workspace:clean`）**复合**「session 文件夹 ↔ 会话一一对应」能力，
+  **不新增按钮**：原按钮在扫描并隔离散落文件/目录之外，再判定 `sessions/` 下每个一级文件夹
+  是否有对应会话，把「多余」文件夹整体移入同一 `.quarantine/<时间戳>/sessions/<folder>/`
+  （同盘改名，可回退，与散落项共用隔离区）。
+- 新增自包含判定模块 `lib/actions/session-mapping.mjs`（仅 node: 内置模块）：
+  - 权威口径用 `workspace.json` 的 `tables.workspaces[*].sessionIds − global.archivedSessionIds`
+    得到活跃会话；**不用运行时 `sessions.list()`**（含归档与 subagent，会放大活跃集）。
+  - 结合 host 会话存储目录与 `sessions/.meta/*.json` 构造已知短 id 集合，再用
+    `.meta.folder ↔ .meta.id` 反查归属；名字短 id 匹配失败不草率判「无对应会话」。
+  - 多重硬保护：有 live `.meta` 的在用会话、`.meta.id` 命中已登记会话、短 id 命中任意已知会话、
+    历史命名（`_sessio`，当年 shortId 未剥 `session-` 前缀）、隐藏目录一律保护；
+    registry 缺失/为空或 `.meta` 不可读时 `gateOk=false`，整轮 no-op，一个文件夹都不动。
+  - 绝不用 `process.cwd()` 推导当前会话（实测宿主进程 cwd ≠ 会话目录）。
+- 结果文本沿用「检测清单 + 隔离结果」双分区（`data.scanText` / `data.actionText`）：
+  清单里含逐目录 保护/多余 判定及原因，结论里分别统计散落项与多余会话文件夹的移动数。
+  属于多余会话文件夹根的散落项不再单独搬（整个文件夹整体移走），避免双搬/竞态。
+
+### 说明
+- 隔离一律同盘 `renameSync` 进隔离区，不删除；「清空隔离区」才物理删除，随时可原路找回。
+- 回归测试 `test/workspace-sessions.test.mjs`（node:test）含负向对照夹具
+  `test/fixtures/workspace.before.mjs`：未修复原版不处理会话文件夹，此断言在原版上必 FAIL、
+  在新版上 PASS，证明特性确由本次复合引入。
+
 ## [1.1.1] — 2026-11-07
 
 ### 修复
