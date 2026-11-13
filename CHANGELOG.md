@@ -1,5 +1,25 @@
 # CHANGELOG
 
+## [1.3.2] — 2026-11-13
+
+### 变更
+- **整理工作区默认启用「对话 ↔ 会话文件夹 1:1」双层判定**。新增 `resolveCleanOpts(params)`，
+  GUI 按钮（客户端不带 params）默认 `moveOrphanSessions: true`，一次点击即把「没有对应 GUI
+  对话」的多余文件夹连同散落文件一并同盘隔离进 `.quarantine/<时间戳>/`，可回退、绝不删除；
+  可显式传 `moveOrphanSessions: false` 关闭。`quarantineStrays()` 函数本身默认值不变
+  （程序化直接调用不传 opts 仍只处理散落文件），既不影响既有调用，也不破坏既有测试。
+- **补上「记忆 / 后台任务会话」的 1:1 判定**：`session-mapping.mjs` 新增
+  `isInternalSessionId(id)`，精确识别 Mnemon 内部 worker（`mnemon-task-v1-*` /
+  `mnemon-run-v1-*`，用 `normId()` 兼容原始与已归一化 id）。这类会话不是 GUI 对话，
+  在 verdict 链里直接判为「多余」，不再因「有 live .meta + 宿主会话目录命中」被误保护；
+  真实 `session-<uuid>` 对话 / 裸 uuid / 历史 `_sessio` 一律不受影响（宁可漏报不可误伤，
+  registry 或 .meta 不可用时整轮 no-op）。与 `@local/dsh-session-folders` 同类补丁口径一致。
+- 「扫描并隔离散落文件」按钮更名「整理工作区（散落文件 + 多余会话文件夹）」，文案补 1:1 与
+  「可回退不删除、真实对话一律保护」。
+- 新增测试：`isInternalSessionId` 纯函数、mnemon 文件夹判 orphan 且真实对话/历史仍保护、
+  按钮默认 opts 端到端隔离 mnemon 并做 1:1 对账、负向对照（旧版 `session-mapping.before.mjs`
+  把 mnemon 判 protect，必须变红）。
+
 ## [1.3.1] — 2026-11-11
 
 ### 变更

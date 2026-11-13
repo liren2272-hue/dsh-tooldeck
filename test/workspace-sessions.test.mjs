@@ -251,6 +251,87 @@ test('负向对照：原版 quarantineStrays 不处理 session 文件夹（此�
 })
 
 // ---------------------------------------------------------------------------
+// 5b) 负向对照：「live .meta 但会话已从 registry + 宿主存储删除」→ 旧版误保护 / 新版判 orphan
+// ---------------------------------------------------------------------------
+test('负向对照：live .meta 但宿主已删 → 旧版误保护、新版判 orphan（hostReadable 护栏）', async () => {
+  // 夹具：会话 deaddead 不在 registry（sessionIds/archiveIds 都没有），宿主存储里也没有它的目录，
+  // 但 sessions/.meta 仍留一条 live（archivedAt=0）记录 + 一个空骨架文件夹。
+  // 旧版：live .meta 一律保护 → 误留空壳。新版：hostReadable 且查不到该会话 → 降级 orphan。
+  function buildDeadLive() {
+    const ws = tmpdir('ws-dead')
+    const fx = tmpdir('fx-dead')
+    const regPath = path.join(fx, 'workspace.json')
+    const hostDir = path.join(fx, 'sessions')
+    writeJson(regPath, {
+      global: { archivedSessionIds: [] },
+      tables: { workspaces: { w1: { path: ws, sessionIds: ['session-aaaa1111-0000-0000-0000-000000000000'] } } },
+    })
+    // 宿主存储可读，但只有 aaaa1111，没有 deaddead（模拟 deaddead 正文已被删）
+    fs.mkdirSync(path.join(hostDir, 'session-aaaa1111-0000-0000-0000-000000000000'), { recursive: true })
+    const sessions = path.join(ws, 'sessions')
+    fs.mkdirSync(path.join(sessions, '.meta'), { recursive: true })
+    writeJson(path.join(sessions, '.meta', 'dead.json'), {
+      id: 'session-deaddead-0000-0000-0000-000000000000',
+      folder: '2026-11-11_2137_deadde',
+      archivedAt: 0,
+    })
+    // 空骨架：只有 README（itemCount 极少）
+    put(path.join(sessions, '2026-11-11_2137_deadde', 'README.md'), 'orphan skeleton')
+    return { ws, fx, env: { registryPath: regPath, hostSessionsDir: hostDir } }
+  }
+
+  const a = buildDeadLive()
+  const b = buildDeadLive()
+  try {
+    const before = await import('./fixtures/session-mapping.before.mjs')
+    const rBefore = before.scanOrphanSessionFolders(a.ws, a.env)
+    const oldVerdict = rBefore.reasons.find((x) => x.folder === '2026-11-11_2137_deadde')
+    assert.equal(oldVerdict.verdict, 'protect',
+      '未修复原版应把 live .meta 空壳误判为 protect —— 若此断言失败说明夹具不是旧版')
+
+    const rAfter = scanOrphanSessionFolders(b.ws, b.env)
+    const newVerdict = rAfter.reasons.find((x) => x.folder === '2026-11-11_2137_deadde')
+    assert.equal(newVerdict.verdict, 'orphan',
+      '新版应把「live .meta 但 registry+宿主都已删」判为 orphan')
+    assert.match(newVerdict.why, /宿主会话存储中删除/)
+    assert.ok(rAfter.orphans.some((o) => o.name === '2026-11-11_2137_deadde'), 'orphan 列表含该空壳')
+    // 活跃会话 aaaa1111（在 registry + 宿主都有）仍受保护
+    assert.equal(rAfter.meta.hostReadable, true)
+    assert.ok(!rAfter.orphans.some((o) => o.name === '2026-11-09_0241_e16854'))
+  } finally {
+    rmrf(a.ws); rmrf(a.fx); rmrf(b.ws); rmrf(b.fx)
+  }
+})
+
+test('护栏：宿主会话存储读不到（hostReadable=false）→ live .meta 保持保护，绝不因读不到而误删', () => {
+  const ws = tmpdir('ws-nohost')
+  const fx = tmpdir('fx-nohost')
+  try {
+    const regPath = path.join(fx, 'workspace.json')
+    writeJson(regPath, {
+      global: { archivedSessionIds: [] },
+      tables: { workspaces: { w1: { path: ws, sessionIds: ['session-aaaa1111-0000-0000-0000-000000000000'] } } },
+    })
+    // 不创建 hostDir → collectHostShortIds2 读不到 → readable=false
+    const sessions = path.join(ws, 'sessions')
+    fs.mkdirSync(path.join(sessions, '.meta'), { recursive: true })
+    writeJson(path.join(sessions, '.meta', 'dead.json'), {
+      id: 'session-deaddead-0000-0000-0000-000000000000',
+      folder: '2026-11-11_2137_deadde',
+      archivedAt: 0,
+    })
+    put(path.join(sessions, '2026-11-11_2137_deadde', 'README.md'), 'skeleton')
+    const r = scanOrphanSessionFolders(ws, { registryPath: regPath, hostSessionsDir: path.join(fx, 'NOPE') })
+    assert.equal(r.meta.hostReadable, false)
+    const v = r.reasons.find((x) => x.folder === '2026-11-11_2137_deadde')
+    assert.equal(v.verdict, 'protect', '宿主读不到时 live .meta 必须保守保护，不能降级 orphan')
+    assert.equal(r.orphans.length, 0)
+  } finally {
+    rmrf(ws); rmrf(fx)
+  }
+})
+
+// ---------------------------------------------------------------------------
 // 6) 三步闭环：只读审计不动盘、目录/隐藏项不误伤、隔离可回退、purge 才真删
 // ---------------------------------------------------------------------------
 test('三步：audit 只读 → quarantineStrays 可回退 → purgeQuarantine 才真删', () => {

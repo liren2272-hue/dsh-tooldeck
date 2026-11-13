@@ -19,8 +19,12 @@
   `includeRootDirs: true`，默认关闭。）
 - **隐藏文件/目录一律不碰**：`.bsk` / `.dsh` / `.cc-safety-net` / `.quarantine` / `.meta` / `.trash` 等。
 - 白名单：`sessions/INDEX.md`、会话目录根 `README.md`。
-- 会话文件夹 1:1 复合能力仍在（`lib/actions/session-mapping.mjs`），但默认关闭，需显式
-  `moveOrphanSessions: true` 才启用；默认不搬任何会话文件夹。
+- 会话文件夹 1:1 复合判定（`lib/actions/session-mapping.mjs`）默认随「整理工作区」启用：
+  校验对话 ↔ 文件夹一一对应，把没有对应 GUI 对话的多余文件夹（含 Mnemon 内部记忆/后台任务
+  文件夹 `*_mnemon`）一并同盘隔离进 `.quarantine`，可回退、绝不删除；真实 `session-*` 对话、
+  历史 `_sessio` 命名一律保护，registry/.meta 数据源不可用时整轮 no-op。
+  可显式传 `moveOrphanSessions: false` 关闭该层判定（程序化直接调 `quarantineStrays()` 不传
+  opts 时仍沿用旧行为，只处理散落文件）。
 
 - **查找插件尸体**：扫描「未安装插件」的残留——市场发现兼容性缓存、状态文件里的未装引用、`.bak` 备份、
   临时残留、孤儿数据目录、未装插件副本、悬空软链——输出清单并把整文件/目录类尸体整体移入
